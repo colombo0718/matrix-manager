@@ -5,11 +5,15 @@
   <meta charset="UTF-8" />
   <title>Matrix Manager 任務牆 · v1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Matrix Manager 任務牆 v1 —— Colombo 的個人任務與專案總覽。">
+  <meta
+    name="description"
+    content="Matrix Manager 任務牆 v1 —— Colombo 的個人與專案任務總覽。"
+  />
   <style>
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
       background: #050816;
       color: #e5e7eb;
       display: flex;
@@ -27,7 +31,9 @@
     #list-column {
       width: 55%;
     }
-    h1, h2, h3 {
+    h1,
+    h2,
+    h3 {
       margin: 0 0 8px;
     }
     .pill {
@@ -38,9 +44,15 @@
       margin-left: 4px;
       border: 1px solid rgba(148, 163, 184, 0.4);
     }
-    .pill-high { border-color: #f97316; }
-    .pill-mid  { border-color: #38bdf8; }
-    .pill-low  { border-color: #a3e635; }
+    .pill-high {
+      border-color: #f97316;
+    }
+    .pill-mid {
+      border-color: #38bdf8;
+    }
+    .pill-low {
+      border-color: #a3e635;
+    }
 
     .area-block {
       margin-bottom: 16px;
@@ -59,7 +71,8 @@
       margin: 4px 0;
     }
     .task-item span.id {
-      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+        Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 11px;
       opacity: 0.7;
       margin-right: 4px;
@@ -82,7 +95,7 @@
       font-size: 14px;
     }
     .checklist-section label {
-      cursor: pointer;
+      cursor: default;
     }
     .small-note {
       font-size: 11px;
@@ -97,7 +110,7 @@
   </div>
 
   <div id="list-column" class="column">
-    <h2>Matrix Manager · 今天 & 本週 Checklist</h2>
+    <h2>今天 & 本週 Checklist</h2>
     <div class="checklist-section">
       <h3>🔥 今天優先</h3>
       <ul id="list-today"></ul>
@@ -107,15 +120,17 @@
       <ul id="list-current"></ul>
     </div>
     <div class="checklist-section">
-      <h3>📥 待排程（Backlog）</h3>
+      <h3>📥 待排程（Backlog 精選）</h3>
       <ul id="list-backlog"></ul>
-      <p class="small-note">* 只顯示優先度較高的部分 backlog，避免太爆。</p>
+      <p class="small-note">
+        * 只顯示重要度較高（P1/P2）的 backlog，避免右邊爆炸。
+      </p>
     </div>
   </div>
 
-  <!-- 資料庫（MM 專案核心資料） -->
+  <!-- 資料庫 -->
   <script src="./tasks_db.js"></script>
-  <!-- UI 邏輯（Matrix Manager 任務牆 v1） -->
+  <!-- UI 邏輯 -->
   <script src="./task_ui.js"></script>
 </body>
 </html>
