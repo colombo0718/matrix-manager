@@ -1,0 +1,121 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Matrix Manager 任務牆 · v1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Matrix Manager 任務牆 v1 —— Colombo 的個人任務與專案總覽。">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #050816;
+      color: #e5e7eb;
+      display: flex;
+      height: 100vh;
+    }
+    .column {
+      padding: 16px;
+      box-sizing: border-box;
+      overflow-y: auto;
+    }
+    #mind-column {
+      width: 45%;
+      border-right: 1px solid #1f2933;
+    }
+    #list-column {
+      width: 55%;
+    }
+    h1, h2, h3 {
+      margin: 0 0 8px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-left: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+    .pill-high { border-color: #f97316; }
+    .pill-mid  { border-color: #38bdf8; }
+    .pill-low  { border-color: #a3e635; }
+
+    .area-block {
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0b1020;
+    }
+    .project-block {
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 10px;
+      background: #0f172a;
+    }
+    .task-item {
+      font-size: 14px;
+      margin: 4px 0;
+    }
+    .task-item span.id {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 11px;
+      opacity: 0.7;
+      margin-right: 4px;
+    }
+    .task-item.done {
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+
+    .checklist-section {
+      margin-bottom: 20px;
+    }
+    .checklist-section ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .checklist-section li {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+    .checklist-section label {
+      cursor: pointer;
+    }
+    .small-note {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div id="mind-column" class="column">
+    <h1>Matrix Manager · 任務心智圖</h1>
+    <div id="mind-map"></div>
+  </div>
+
+  <div id="list-column" class="column">
+    <h2>Matrix Manager · 今天 & 本週 Checklist</h2>
+    <div class="checklist-section">
+      <h3>🔥 今天優先</h3>
+      <ul id="list-today"></ul>
+    </div>
+    <div class="checklist-section">
+      <h3>📆 本週任務（Current）</h3>
+      <ul id="list-current"></ul>
+    </div>
+    <div class="checklist-section">
+      <h3>📥 待排程（Backlog）</h3>
+      <ul id="list-backlog"></ul>
+      <p class="small-note">* 只顯示優先度較高的部分 backlog，避免太爆。</p>
+    </div>
+  </div>
+
+  <!-- 資料庫（MM 專案核心資料） -->
+  <script src="./tasks_db.js"></script>
+  <!-- UI 邏輯（Matrix Manager 任務牆 v1） -->
+  <script src="./task_ui.js"></script>
+</body>
+</html>
