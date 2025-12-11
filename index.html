@@ -113,6 +113,14 @@
       margin-bottom: 4px;
     }
 
+    .area-card-header .area-toggle {
+    cursor: pointer;
+    }
+
+    .area-card.collapsed .area-projects {
+    display: none;
+    }
+
     .area-card-header .area-icon {
       font-size: 18px;
     }
@@ -451,6 +459,33 @@
         max-height: calc(100vh - 150px);
       }
     }
+
+    /* 手機直立版：只顯示標題 + 期限，避免欄位互相蓋住 */
+@media (max-width: 767px) {
+  #tasksTable {
+    width: 100%;
+    table-layout: fixed; /* 固定欄寬，避免被內容撐爆 */
+  }
+
+  #tasksTable th,
+  #tasksTable td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 超出直接 ... */
+  }
+
+  /* 直立時只會露出標題＋期限，給它們一個合理比重 */
+  #tasksTable th.col-title,
+  #tasksTable td.col-title {
+    width: 65%;
+  }
+
+  #tasksTable th.col-due,
+  #tasksTable td.col-due {
+    width: 35%;
+    text-align: right;
+  }
+}
   </style>
 </head>
 
@@ -563,8 +598,8 @@
           <thead>
             <tr>
               <th></th>
-              <th>標題</th>
-              <th>期限</th>
+              <th class="col-title">標題</th>
+              <th class="col-due">期限</th>
               <th class="col-status">狀態</th>
               <th class="col-priority">重要度</th>
               <th class="col-effort">預估</th>

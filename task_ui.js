@@ -31,6 +31,35 @@ const columnVisibility = {
   tags: true,
 };
 
+/***************************************************
+ * RWD：依螢幕比例決定欄位預設顯示
+ * - 桌機 / 橫向：四個欄位全開
+ * - 手機 / 直向：四個欄位預設全關（只留標題＋期限）
+ ***************************************************/
+function initResponsiveColumnDefaults() {
+  const hasMq = typeof window.matchMedia === "function";
+  const isPortraitMq =
+    hasMq && window.matchMedia("(orientation: portrait)").matches;
+  const isPortraitCalc = window.innerHeight > window.innerWidth;
+  const isNarrow = window.innerWidth < 768; // 手機 / 小視窗
+
+  const useCompact = isPortraitMq || isPortraitCalc || isNarrow;
+
+  if (useCompact) {
+    // 直向手機：四欄預設關閉
+    columnVisibility.status = false;
+    columnVisibility.priority = false;
+    columnVisibility.effort = false;
+    columnVisibility.tags = false;
+  } else {
+    // 桌機或橫向：四欄預設全開
+    columnVisibility.status = true;
+    columnVisibility.priority = true;
+    columnVisibility.effort = true;
+    columnVisibility.tags = true;
+  }
+}
+
 // area 排序
 const areaOrderMap = {};
 
@@ -45,6 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   buildAllTasks();
   initAreaTree();
+  initResponsiveColumnDefaults();
   initFilterMenus();
   renderTasksTable();
 });
@@ -138,30 +168,72 @@ function initAreaTree() {
     const card = document.createElement("div");
     card.className = "area-card";
 
+    // ===== header 區塊 =====
     const header = document.createElement("div");
     header.className = "area-card-header";
 
+    // [1] Area 總開關 checkbox
+    const areaToggle = document.createElement("input");
+    areaToggle.type = "checkbox";
+    areaToggle.className = "area-toggle";
+
+    // [2] icon + 名稱（點這裡負責收合）
     const iconSpan = document.createElement("span");
     iconSpan.className = "area-icon";
-    iconSpan.textContent = area.icon || "🌙";
+    iconSpan.textContent = area.icon || "";
 
     const nameSpan = document.createElement("span");
     nameSpan.className = "area-name";
     nameSpan.textContent = area.name;
 
+    header.appendChild(areaToggle);
     header.appendChild(iconSpan);
     header.appendChild(nameSpan);
 
+    // ===== project list =====
     const ul = document.createElement("ul");
     ul.className = "area-projects";
 
     const projects = table_config.filter((cfg) => cfg.areaKey === area.key);
+
+    // 同步 area checkbox 狀態（全勾 / 全不勾 / 半勾）
+    const syncAreaToggleState = () => {
+      const projCbs = ul.querySelectorAll('input[type="checkbox"][data-pid]');
+      const total = projCbs.length;
+      let checkedCount = 0;
+
+      projCbs.forEach((cb) => {
+        if (cb.checked) checkedCount++;
+      });
+
+      if (total === 0) {
+        areaToggle.checked = false;
+        areaToggle.indeterminate = false;
+        areaToggle.disabled = true;
+        return;
+      }
+
+      if (checkedCount === 0) {
+        areaToggle.checked = false;
+        areaToggle.indeterminate = false;
+      } else if (checkedCount === total) {
+        areaToggle.checked = true;
+        areaToggle.indeterminate = false;
+      } else {
+        // 部分有勾：顯示 indeterminate
+        areaToggle.checked = false;
+        areaToggle.indeterminate = true;
+      }
+    };
+
+    // 建立底下的 project checkbox
     projects.forEach((cfg) => {
       const li = document.createElement("li");
       const label = document.createElement("label");
 
       const cb = document.createElement("input");
       cb.type = "checkbox";
+      cb.className = "proj-toggle";
       cb.checked = selectedPids.has(cfg.pid);
       cb.dataset.pid = cfg.pid;
 
@@ -171,6 +243,7 @@ function initAreaTree() {
         } else {
           selectedPids.delete(cfg.pid);
         }
+        syncAreaToggleState();
         renderTasksTable();
       });
 
@@ -182,6 +255,37 @@ function initAreaTree() {
       li.appendChild(label);
       ul.appendChild(li);
     });
+
+    // Area checkbox：一鍵全選 / 全不選此區 project
+    areaToggle.addEventListener("change", () => {
+      const projCbs = ul.querySelectorAll('input[type="checkbox"][data-pid]');
+
+      projCbs.forEach((cb) => {
+        cb.checked = areaToggle.checked;
+        const pid = cb.dataset.pid;
+        if (cb.checked) {
+          selectedPids.add(pid);
+        } else {
+          selectedPids.delete(pid);
+        }
+      });
+
+      // 由使用者直接切換，不需要半勾狀態
+      areaToggle.indeterminate = false;
+      renderTasksTable();
+    });
+
+    // header（除了 checkbox）負責收合 / 展開
+    header.addEventListener("click", (evt) => {
+      // 點到 checkbox 不收合
+      if (evt.target === areaToggle) return;
+
+      const collapsed = card.classList.toggle("collapsed");
+      ul.style.display = collapsed ? "none" : "";
+    });
+
+    // 初始同步一次（依照目前 selectedPids）
+    syncAreaToggleState();
 
     card.appendChild(header);
     card.appendChild(ul);
@@ -240,18 +344,19 @@ function initFilterMenus() {
     // 顯示欄位 checkbox
     const showCheckbox = panel.querySelector('input[data-role="show-column"]');
     if (showCheckbox) {
-      if (type === "status") columnVisibility.status = showCheckbox.checked;
-      if (type === "priority") columnVisibility.priority = showCheckbox.checked;
-      if (type === "effort") columnVisibility.effort = showCheckbox.checked;
-      if (type === "tags") columnVisibility.tags = showCheckbox.checked;
+    // 初始勾選狀態，改成「跟著 columnVisibility 走」
+    if (type === "status") showCheckbox.checked = columnVisibility.status;
+    if (type === "priority") showCheckbox.checked = columnVisibility.priority;
+    if (type === "effort") showCheckbox.checked = columnVisibility.effort;
+    if (type === "tags") showCheckbox.checked = columnVisibility.tags;
 
-      showCheckbox.addEventListener("change", () => {
+    showCheckbox.addEventListener("change", () => {
         if (type === "status") columnVisibility.status = showCheckbox.checked;
         if (type === "priority") columnVisibility.priority = showCheckbox.checked;
         if (type === "effort") columnVisibility.effort = showCheckbox.checked;
         if (type === "tags") columnVisibility.tags = showCheckbox.checked;
         updateColumnVisibility();
-      });
+    });
     }
 
     // 值的 checkbox
@@ -412,6 +517,7 @@ function renderTasksTable() {
 
     // 1) 標題（人類視線核心）
     const tdTitle = document.createElement("td");
+    tdTitle.className = "col-title";
     const titleSpan = document.createElement("span");
     titleSpan.className = "task-title";
     titleSpan.textContent = task.title || "";
@@ -420,6 +526,7 @@ function renderTasksTable() {
 
     // 2) 期限
     const tdDue = document.createElement("td");
+    tdDue.className = "col-due";
     tdDue.textContent = task.due || "";
     tr.appendChild(tdDue);
 
