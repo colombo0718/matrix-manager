@@ -1,0 +1,625 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Matrix Manager · 任務心智圖</title>
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E🗃️%3C/text%3E%3C/svg%3E"
+    />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Matrix Manager – 用任務心智圖管理 LeafLune / CWSoft / Personal 的所有任務。">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-soft: #02081d;
+      --card: #020817;
+      --border-subtle: rgba(148, 163, 184, 0.25);
+      --text-main: #e5e7eb;
+      --text-soft: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.18);
+      --danger: #fb7185;
+      --warning: #f97316;
+      --success: #4ade80;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, #020824, #020617 50%, #000 100%);
+      color: var(--text-main);
+      font-family: "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      display: flex;
+    }
+
+    #app {
+      flex: 1;
+      display: flex;
+      min-height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 左側：Area / Project ---------------------------------- */
+
+    #sidebar {
+      width: 320px;
+      padding: 18px 18px;
+      border-right: 1px solid rgba(15, 23, 42, 0.9);
+      background: linear-gradient(180deg, #020617 0%, #020617 45%, #020617 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar-header h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sidebar-header .logo-emoji {
+      font-size: 20px;
+    }
+
+    .sidebar-subtitle {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--text-soft);
+    }
+
+    #areaTree {
+      margin-top: 10px;
+      padding: 8px 0 4px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .area-card {
+      background: radial-gradient(circle at top left, #02081f, #020617 48%);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      box-shadow: 0 16px 38px rgba(15, 23, 42, 0.8);
+      padding: 10px 12px 10px;
+    }
+
+    .area-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .area-card-header .area-toggle {
+    cursor: pointer;
+    }
+
+    .area-card.collapsed .area-projects {
+    display: none;
+    }
+
+    .area-card-header .area-icon {
+      font-size: 18px;
+    }
+
+    .area-card-header .area-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .area-projects {
+      list-style: none;
+      margin: 4px 0 0;
+      padding: 0;
+    }
+
+    .area-projects li {
+      padding: 2px 0;
+    }
+
+    .area-projects label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-soft);
+      cursor: pointer;
+    }
+
+    .area-projects input[type="checkbox"] {
+      accent-color: var(--accent);
+    }
+
+    /* 右側：Filter + Table ------------------------------ */
+
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 18px 20px 14px;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    #filtersBar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius-lg);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.8);
+      font-size: 13px;
+    }
+
+    .filters-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-menu {
+      position: relative;
+    }
+
+    .filter-toggle {
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 999px;
+      border: 1px solid rgba(51, 65, 85, 0.9);
+      color: var(--text-main);
+      font-size: 12px;
+      padding: 4px 10px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .filter-toggle::after {
+      content: "▾";
+      font-size: 10px;
+      opacity: 0.8;
+    }
+
+    .filter-panel {
+      position: absolute;
+      top: calc(100% + 4px);
+      /* 左側對齊按鈕 */
+      left: 0;
+      min-width: 180px;
+      max-height: 260px;
+      overflow-y: auto;
+      background: rgba(15, 23, 42, 0.98);
+      border-radius: 12px;
+      border: 1px solid rgba(30, 64, 175, 0.9);
+      padding: 8px 10px;
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.95);
+      display: none;
+      z-index: 20;
+    }
+
+    .filter-panel.open {
+      display: block;
+    }
+
+    .filter-panel label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-soft);
+      padding: 2px 0;
+      cursor: pointer;
+    }
+
+    .filter-panel input[type="checkbox"] {
+      accent-color: var(--accent);
+    }
+
+    .filter-divider {
+      margin: 4px 0;
+      border-top: 1px solid rgba(51, 65, 85, 0.8);
+    }
+
+    .tag-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    #tableWrapper {
+      flex: 1;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top left, #02081f, #020617 48%);
+      border: 1px solid rgba(30, 64, 175, 0.75);
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.9);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #tasksTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    #tasksTable thead {
+      background: rgba(15, 23, 42, 0.98);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    #tasksTable th,
+    #tasksTable td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.9);
+      white-space: nowrap;
+    }
+
+    #tasksTable th {
+      font-weight: 500;
+      color: var(--text-soft);
+      font-size: 11px;
+    }
+
+    #tasksTable tbody {
+      display: block;
+      max-height: calc(100vh - 160px);
+      overflow-y: auto;
+    }
+
+    #tasksTable thead,
+    #tasksTable tbody tr {
+      display: table;
+      width: 100%;
+      table-layout: fixed;
+    }
+
+    #tasksTable tbody tr:nth-child(odd) {
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    #tasksTable tbody tr:nth-child(even) {
+      background: rgba(15, 23, 42, 0.82);
+    }
+
+    #tasksTable tbody tr:hover {
+      background: rgba(30, 64, 175, 0.55);
+    }
+
+    #tasksTable input[type="checkbox"] {
+      accent-color: var(--accent);
+    }
+
+    /* 欄位寬度 & 對齊：
+       [0] checkbox：置中窄欄
+       [1] 標題：靠左貼 checkbox
+       [2+] 其他欄位：靠右
+    */
+
+    #tasksTable th:first-child,
+    #tasksTable td:first-child {
+      width: 28px;
+      padding-left: 4px;
+      padding-right: 4px;
+      text-align: center;
+    }
+
+    #tasksTable th:nth-child(2),
+    #tasksTable td:nth-child(2) {
+      width: 42%;
+      padding-left: 0;
+      text-align: left;
+    }
+
+    #tasksTable th:nth-child(n + 3),
+    #tasksTable td:nth-child(n + 3) {
+      text-align: right;
+    }
+
+    #tasksTable th.col-status,
+    #tasksTable td.col-status-cell {
+      width: 96px;
+    }
+
+    #tasksTable th.col-priority,
+    #tasksTable td.col-priority-cell {
+      width: 82px;
+    }
+
+    #tasksTable th.col-effort,
+    #tasksTable td.col-effort-cell {
+      width: 80px;
+    }
+
+    #tasksTable th.col-tags,
+    #tasksTable td.col-tags-cell {
+      width: auto;
+    }
+
+    .pill-status {
+      border-radius: 999px;
+      padding: 1px 6px;
+      font-size: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: inline-block;
+    }
+
+    .pill-status.today {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: rgba(248, 113, 113, 0.15);
+    }
+
+    .pill-status.current {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .pill-status.backlog,
+    .pill-status.idea {
+      border-style: dashed;
+    }
+
+    .pill-status.done {
+      border-color: var(--success);
+      color: var(--success);
+      background: rgba(22, 163, 74, 0.2);
+    }
+
+    .priority-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 0 6px;
+      font-size: 10px;
+      display: inline-block;
+    }
+
+    .priority-pill.p1 {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .priority-pill.p2 {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .priority-pill.p3 {
+      border-color: #64748b;
+      color: #64748b;
+    }
+
+    .task-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .task-tags {
+      font-size: 10px;
+      color: var(--text-soft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .row-checked-as-done {
+      opacity: 0.45;
+      text-decoration: line-through;
+    }
+
+    .empty-hint {
+      margin: 0;
+      padding: 8px 14px 10px;
+      font-size: 12px;
+      color: var(--text-soft);
+      border-top: 1px solid rgba(30, 64, 175, 0.7);
+      background: rgba(15, 23, 42, 0.94);
+    }
+
+    @media (max-width: 960px) {
+      #sidebar {
+        display: none;
+      }
+      #main {
+        padding: 14px;
+      }
+      #tasksTable tbody {
+        max-height: calc(100vh - 150px);
+      }
+    }
+
+    /* 手機直立版：只顯示標題 + 期限，避免欄位互相蓋住 */
+@media (max-width: 767px) {
+  #tasksTable {
+    width: 100%;
+    table-layout: fixed; /* 固定欄寬，避免被內容撐爆 */
+  }
+
+  #tasksTable th,
+  #tasksTable td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 超出直接 ... */
+  }
+
+  /* 直立時只會露出標題＋期限，給它們一個合理比重 */
+  #tasksTable th.col-title,
+  #tasksTable td.col-title {
+    width: 65%;
+  }
+
+  #tasksTable th.col-due,
+  #tasksTable td.col-due {
+    width: 35%;
+    text-align: right;
+  }
+}
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <!-- 左側：Area / Project 樹狀圖 -->
+    <aside id="sidebar">
+      <header class="sidebar-header">
+        <h1>
+          <span class="logo-emoji">🗃️</span>
+          MATRIX MANAGER
+        </h1>
+      </header>
+
+      <section id="areaTree" aria-label="專案範圍選擇">
+        <!-- 由 JS 建立 -->
+      </section>
+    </aside>
+
+    <!-- 右側：Checklist 表格 -->
+    <main id="main">
+      <header id="filtersBar">
+        <div class="filters-row">
+          <!-- 狀態 filter -->
+          <div class="filter-menu" data-type="status">
+            <button type="button" class="filter-toggle">狀態</button>
+            <div class="filter-panel">
+              <label>
+                <input type="checkbox" data-role="show-column" checked />
+                顯示欄位
+              </label>
+              <div class="filter-divider"></div>
+              <label>
+                <input type="checkbox" data-value="today" />
+                今日 today
+              </label>
+              <label>
+                <input type="checkbox" data-value="current" />
+                進行中 current
+              </label>
+              <label>
+                <input type="checkbox" data-value="backlog" />
+                Backlog
+              </label>
+              <label>
+                <input type="checkbox" data-value="idea" />
+                Idea
+              </label>
+              <label>
+                <input type="checkbox" data-value="done" />
+                已完成 done
+              </label>
+            </div>
+          </div>
+
+          <!-- 重要度 filter -->
+          <div class="filter-menu" data-type="priority">
+            <button type="button" class="filter-toggle">重要度</button>
+            <div class="filter-panel">
+              <label>
+                <input type="checkbox" data-role="show-column" checked />
+                顯示欄位
+              </label>
+              <div class="filter-divider"></div>
+              <label>
+                <input type="checkbox" data-value="1" />
+                P1（最高）
+              </label>
+              <label>
+                <input type="checkbox" data-value="2" />
+                P2（中）
+              </label>
+              <label>
+                <input type="checkbox" data-value="3" />
+                P3 / 未填
+              </label>
+            </div>
+          </div>
+
+          <!-- 預估時間 filter：現在只有顯示欄位 -->
+          <div class="filter-menu" data-type="effort">
+            <button type="button" class="filter-toggle">預估</button>
+            <div class="filter-panel">
+              <label>
+                <input type="checkbox" data-role="show-column" checked />
+                顯示欄位
+              </label>
+            </div>
+          </div>
+
+          <!-- 標籤 filter -->
+          <div class="filter-menu" data-type="tags">
+            <button type="button" class="filter-toggle">標籤</button>
+            <div class="filter-panel">
+              <label>
+                <input type="checkbox" data-role="show-column" checked />
+                顯示欄位
+              </label>
+              <div class="filter-divider"></div>
+              <div class="tag-list">
+                <!-- 由 JS 填入所有 tag -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="tableWrapper">
+        <table id="tasksTable">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="col-title">標題</th>
+              <th class="col-due">期限</th>
+              <th class="col-status">狀態</th>
+              <th class="col-priority">重要度</th>
+              <th class="col-effort">預估</th>
+              <th class="col-tags">標籤</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 由 JS 產生 -->
+          </tbody>
+        </table>
+        <p id="emptyHint" class="empty-hint" style="display:none;">
+          沒有符合條件的任務。
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <!-- 先載入資料庫，再載入 UI -->
+  <script src="tasks_db.js"></script>
+  <script src="task_ui_0.js"></script>
+</body>
+</html>
