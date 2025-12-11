@@ -1,310 +1,517 @@
-/**************************************************
- * Matrix Manager · task_ui.js
- * v1：讀取 tasks_db.js 並渲染左右兩欄
- **************************************************/
+/***************************************************
+ * Matrix Manager · 任務心智圖 UI
+ *
+ * - 讀取 tasks_db.js 的 table_area / table_config / table_xxx
+ * - 左側：Area / Project 樹狀圖（只影響「顯示範圍」）
+ * - 右側：Checklist 表格（checkbox 當人類 ↔ AI 的溝通橋樑）
+ *
+ * 注意：
+ *   這支檔案只處理前端狀態，不改寫 tasks_db.js。
+ ***************************************************/
 
-(function () {
-  "use strict";
+// 全部任務扁平清單
+const allTasks = [];
 
-  // 將 pid + seq 組成你習慣看的 ID：L-01-01
-  function formatGlobalId(pid, seq) {
-    if (!pid) return String(seq);
-    var areaLetter = pid.charAt(0).toUpperCase(); // l01 -> L
-    var numPart = pid.slice(1);                   // 01
-    if (numPart.length === 1) numPart = "0" + numPart;
-    var seqStr = String(seq);
-    if (seqStr.length === 1) seqStr = "0" + seqStr;
-    return areaLetter + "-" + numPart + "-" + seqStr;
+// 左側勾選的 project pid 集合
+const selectedPids = new Set();
+
+// UI 專用旗標（人類勾選用，不寫回 DB）
+const uiFlags = {}; // key: task.id -> { checked: boolean }
+
+// Filter 狀態
+const selectedStatus = new Set();   // 'today' | 'current' | 'backlog' | 'idea' | 'done'
+const selectedPriority = new Set(); // '1' | '2' | '3'
+const selectedTags = new Set();     // tag string
+
+// 欄位顯示與否
+const columnVisibility = {
+  status: true,
+  priority: true,
+  effort: true,
+  tags: true,
+};
+
+// area 排序
+const areaOrderMap = {};
+
+// 所有出現過的 tags，用來產生「標籤」下拉列表
+const allTagValues = new Set();
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof table_area === "undefined" || typeof table_config === "undefined") {
+    console.error("tasks_db.js 尚未載入或缺少 table_area / table_config。");
+    return;
   }
 
-  // 將 table_area / table_config / table_xxx 合併成一個平面陣列
-  function buildGlobalTasks() {
-    var all = [];
+  buildAllTasks();
+  initAreaTree();
+  initFilterMenus();
+  renderTasksTable();
+});
 
-    // areaKey -> areaInfo
-    var areaMap = {};
-    if (Array.isArray(table_area)) {
-      table_area.forEach(function (a) {
-        areaMap[a.key] = a;
-      });
-    }
+/***************************************************
+ * 資料準備
+ ***************************************************/
 
-    if (!Array.isArray(table_config)) {
-      console.error("table_config 不是陣列，請檢查 tasks_db.js");
-      return all;
-    }
+/** 從 tasks_db 建立 allTasks 與 tag 集合 */
+function buildAllTasks() {
+  // 建立 area order map
+  table_area.forEach((area) => {
+    areaOrderMap[area.key] = area.order ?? 999;
+  });
 
-    table_config.forEach(function (project) {
-      var areaInfo = areaMap[project.areaKey] || {};
-      var tableName = project.table;
-      var table;
-try {
-  // 在同一個 global script 作用域下，用 eval 取出 const 變數
-  table = eval(tableName);
-} catch (e) {
-  table = undefined;
-}
+  table_config.forEach((cfg) => {
+    const area = table_area.find((a) => a.key === cfg.areaKey);
+    if (!area) return;
 
-if (!Array.isArray(table)) {
-  console.warn("找不到任務表：", tableName);
-  return;
-}
-
-      table.forEach(function (row) {
-        var task = {
-          id: formatGlobalId(project.pid, row.seq),
-          pid: project.pid,
-          seq: row.seq,
-          areaKey: project.areaKey,
-          areaName: areaInfo.name || project.areaKey,
-          areaColor: areaInfo.color || "#1f2937",
-          areaIcon: areaInfo.icon || "",
-          project: project.name,
-          title: row.title || "",
-          kind: row.kind || "mission",
-          status: row.status || "backlog",
-          importance: typeof row.importance === "number" ? row.importance : 3,
-          effort: row.effort || null,
-          due: row.due || "",
-          tags: Array.isArray(row.tags) ? row.tags : [],
-          _notes: row.notes || ""
-        };
-
-        all.push(task);
-      });
-    });
-
-    return all;
-  }
-
-  // 左邊：任務心智圖（其實是 area → project → task 的樹狀）
-  function renderMindMap(tasks) {
-    var container = document.getElementById("mind-map");
-    if (!container) return;
-    container.innerHTML = "";
-
-    // 先依 areaKey → project 分組
-    var grouped = {};
-    tasks.forEach(function (task) {
-      var aKey = task.areaKey || "unknown";
-      if (!grouped[aKey]) {
-        grouped[aKey] = {
-          info: {
-            key: task.areaKey,
-            name: task.areaName,
-            color: task.areaColor,
-            icon: task.areaIcon
-          },
-          projects: {}
-        };
-      }
-      var projName = task.project || "(未命名專案)";
-      if (!grouped[aKey].projects[projName]) {
-        grouped[aKey].projects[projName] = [];
-      }
-      grouped[aKey].projects[projName].push(task);
-    });
-
-    // 按 table_area 的 order 排 area
-    var sortedAreas = [];
-    if (Array.isArray(table_area)) {
-      sortedAreas = table_area
-        .filter(function (a) {
-          return grouped[a.key];
-        })
-        .sort(function (a, b) {
-          var oa = typeof a.order === "number" ? a.order : 99;
-          var ob = typeof b.order === "number" ? b.order : 99;
-          return oa - ob;
-        });
-    }
-
-    sortedAreas.forEach(function (areaDef) {
-      var areaGroup = grouped[areaDef.key];
-      if (!areaGroup) return;
-
-      var areaBlock = document.createElement("div");
-      areaBlock.className = "area-block";
-
-      // 區塊標題
-      var h3 = document.createElement("h3");
-      var titleText =
-        (areaGroup.info.icon ? areaGroup.info.icon + " " : "") +
-        (areaGroup.info.name || areaGroup.info.key || "Unknown");
-      h3.textContent = titleText;
-      areaBlock.appendChild(h3);
-
-      // 每個 project
-      var projects = areaGroup.projects;
-      var projectNames = Object.keys(projects).sort();
-
-      projectNames.forEach(function (projName) {
-        var projBlock = document.createElement("div");
-        projBlock.className = "project-block";
-
-        var h4 = document.createElement("h4");
-        h4.textContent = projName;
-        projBlock.appendChild(h4);
-
-        projects[projName].forEach(function (task) {
-          var div = document.createElement("div");
-          div.className = "task-item";
-
-          var idSpan = document.createElement("span");
-          idSpan.className = "id";
-          idSpan.textContent = task.id;
-          div.appendChild(idSpan);
-
-          var titleSpan = document.createElement("span");
-          titleSpan.textContent = task.title;
-          div.appendChild(titleSpan);
-
-          // 顯示 status 簡短標籤
-          var statusSpan = document.createElement("span");
-          statusSpan.className = "small-note";
-          statusSpan.textContent = " · " + task.status;
-          div.appendChild(statusSpan);
-
-          projBlock.appendChild(div);
-        });
-
-        areaBlock.appendChild(projBlock);
-      });
-
-      container.appendChild(areaBlock);
-    });
-  }
-
-  // 右邊：今天 / 本週 / Backlog Checklist
-  function renderChecklists(tasks) {
-    var todayList = document.getElementById("list-today");
-    var currentList = document.getElementById("list-current");
-    var backlogList = document.getElementById("list-backlog");
-
-    if (todayList) todayList.innerHTML = "";
-    if (currentList) currentList.innerHTML = "";
-    if (backlogList) backlogList.innerHTML = "";
-
-    var todayTasks = tasks.filter(function (t) {
-      return t.status === "today";
-    });
-    var currentTasks = tasks.filter(function (t) {
-      return t.status === "current";
-    });
-    var backlogTasks = tasks.filter(function (t) {
-      return t.status === "backlog" && t.importance <= 2;
-    });
-
-    sortTasksForList(todayTasks);
-    sortTasksForList(currentTasks);
-    sortTasksForList(backlogTasks);
-
-    if (todayList) {
-      if (todayTasks.length === 0) {
-        appendEmptyMessage(todayList);
-      } else {
-        todayTasks.forEach(function (task) {
-          todayList.appendChild(createChecklistItem(task));
-        });
-      }
-    }
-
-    if (currentList) {
-      if (currentTasks.length === 0) {
-        appendEmptyMessage(currentList);
-      } else {
-        currentTasks.forEach(function (task) {
-          currentList.appendChild(createChecklistItem(task));
-        });
-      }
-    }
-
-    if (backlogList) {
-      if (backlogTasks.length === 0) {
-        appendEmptyMessage(backlogList);
-      } else {
-        backlogTasks.forEach(function (task) {
-          backlogList.appendChild(createChecklistItem(task));
-        });
-      }
-    }
-  }
-
-  // Checklist 排序：先 importance，再 due，再 id
-  function sortTasksForList(list) {
-    list.sort(function (a, b) {
-      var ia = typeof a.importance === "number" ? a.importance : 3;
-      var ib = typeof b.importance === "number" ? b.importance : 3;
-      if (ia !== ib) return ia - ib;
-
-      var da = a.due || "";
-      var db = b.due || "";
-      if (da && db && da !== db) return da < db ? -1 : 1;
-      if (da && !db) return -1;
-      if (!da && db) return 1;
-
-      return (a.id || "").localeCompare(b.id || "");
-    });
-  }
-
-  function appendEmptyMessage(ul) {
-    var li = document.createElement("li");
-    li.className = "small-note";
-    li.textContent = "（目前沒有任務）";
-    ul.appendChild(li);
-  }
-
-  // 建立 checklist 的 <li> 元素（目前僅顯示，不寫回 DB）
-  function createChecklistItem(task) {
-    var li = document.createElement("li");
-    li.className = "task-item";
-
-    var label = document.createElement("label");
-
-    var checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.disabled = true; // v1 先做唯讀，之後再做互動
-    checkbox.checked = task.status === "done";
-    label.appendChild(checkbox);
-
-    var idSpan = document.createElement("span");
-    idSpan.className = "id";
-    idSpan.textContent = " " + task.id + " ";
-    label.appendChild(idSpan);
-
-    var textSpan = document.createElement("span");
-    textSpan.textContent = task.title;
-    label.appendChild(textSpan);
-
-    // 重要度 pill
-    var pill = document.createElement("span");
-    var imp = typeof task.importance === "number" ? task.importance : 3;
-    var pillClass = "pill-low";
-    if (imp === 1) pillClass = "pill-high";
-    else if (imp === 2) pillClass = "pill-mid";
-    pill.className = "pill " + pillClass;
-    pill.textContent = "P" + imp;
-    label.appendChild(pill);
-
-    // 期限顯示
-    if (task.due) {
-      var dueSpan = document.createElement("span");
-      dueSpan.className = "small-note";
-      dueSpan.textContent = " · 期限 " + task.due;
-      label.appendChild(dueSpan);
-    }
-
-    li.appendChild(label);
-    return li;
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    if (typeof table_area === "undefined" || typeof table_config === "undefined") {
-      console.error("tasks_db.js 尚未載入或結構錯誤。");
+    const tableName = cfg.table;
+    let tableRows;
+    try {
+      // 在非 module script 裡，用 eval 讀取 global const
+      // eslint-disable-next-line no-eval
+      tableRows = eval(tableName);
+    } catch (err) {
+      console.warn(`找不到資料表：${tableName}`, err);
       return;
     }
-    var tasks = buildGlobalTasks();
-    renderMindMap(tasks);
-    renderChecklists(tasks);
+
+    if (!Array.isArray(tableRows)) return;
+
+    // 預設這個 project 被選取
+    selectedPids.add(cfg.pid);
+
+    tableRows.forEach((row) => {
+      const seq = String(row.seq ?? "").padStart(2, "0");
+      const id = `${cfg.pid}-${seq}`;
+
+      // 收集 tags（字串或陣列都吃）
+      const rawTags = row.tags;
+      if (Array.isArray(rawTags)) {
+        rawTags.forEach((t) => {
+          const tag = String(t).trim();
+          if (tag) allTagValues.add(tag);
+        });
+      } else if (typeof rawTags === "string") {
+        rawTags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .forEach((tag) => allTagValues.add(tag));
+      }
+
+      const task = {
+        id,
+        pid: cfg.pid,
+        projectName: cfg.name,
+        table: tableName,
+        areaKey: area.key,
+        areaName: area.name,
+        areaIcon: area.icon || "🌙",
+        areaOrder: area.order ?? 999,
+        // 原始欄位
+        ...row,
+      };
+
+      allTasks.push(task);
+
+      if (!uiFlags[id]) {
+        uiFlags[id] = { checked: false };
+      }
+    });
   });
-})();
+}
+
+/***************************************************
+ * 左側 Area / Project 樹狀圖
+ ***************************************************/
+
+function initAreaTree() {
+  const container = document.getElementById("areaTree");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const sortedAreas = [...table_area].sort(
+    (a, b) => (a.order ?? 999) - (b.order ?? 999)
+  );
+
+  sortedAreas.forEach((area) => {
+    const card = document.createElement("div");
+    card.className = "area-card";
+
+    const header = document.createElement("div");
+    header.className = "area-card-header";
+
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "area-icon";
+    iconSpan.textContent = area.icon || "🌙";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "area-name";
+    nameSpan.textContent = area.name;
+
+    header.appendChild(iconSpan);
+    header.appendChild(nameSpan);
+
+    const ul = document.createElement("ul");
+    ul.className = "area-projects";
+
+    const projects = table_config.filter((cfg) => cfg.areaKey === area.key);
+    projects.forEach((cfg) => {
+      const li = document.createElement("li");
+      const label = document.createElement("label");
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = selectedPids.has(cfg.pid);
+      cb.dataset.pid = cfg.pid;
+
+      cb.addEventListener("change", () => {
+        if (cb.checked) {
+          selectedPids.add(cfg.pid);
+        } else {
+          selectedPids.delete(cfg.pid);
+        }
+        renderTasksTable();
+      });
+
+      const text = document.createElement("span");
+      text.textContent = cfg.name;
+
+      label.appendChild(cb);
+      label.appendChild(text);
+      li.appendChild(label);
+      ul.appendChild(li);
+    });
+
+    card.appendChild(header);
+    card.appendChild(ul);
+    container.appendChild(card);
+  });
+}
+
+/***************************************************
+ * Filter 下拉選單
+ ***************************************************/
+
+function initFilterMenus() {
+  const filterMenus = document.querySelectorAll(".filter-menu");
+
+  filterMenus.forEach((menu) => {
+    const type = menu.dataset.type;
+    const toggleBtn = menu.querySelector(".filter-toggle");
+    const panel = menu.querySelector(".filter-panel");
+    if (!toggleBtn || !panel) return;
+
+    // 開關該 panel
+    toggleBtn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      const opened = panel.classList.contains("open");
+      document
+        .querySelectorAll(".filter-panel.open")
+        .forEach((p) => p.classList.remove("open"));
+      if (!opened) {
+        panel.classList.add("open");
+      }
+    });
+
+    panel.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+    });
+
+    // 標籤：填入所有 tag
+    if (type === "tags") {
+      const tagList = panel.querySelector(".tag-list");
+      if (tagList) {
+        tagList.innerHTML = "";
+        Array.from(allTagValues)
+          .sort((a, b) => a.localeCompare(b, "zh-Hant"))
+          .forEach((tag) => {
+            const label = document.createElement("label");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.dataset.value = tag;
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(tag));
+            tagList.appendChild(label);
+          });
+      }
+    }
+
+    // 顯示欄位 checkbox
+    const showCheckbox = panel.querySelector('input[data-role="show-column"]');
+    if (showCheckbox) {
+      if (type === "status") columnVisibility.status = showCheckbox.checked;
+      if (type === "priority") columnVisibility.priority = showCheckbox.checked;
+      if (type === "effort") columnVisibility.effort = showCheckbox.checked;
+      if (type === "tags") columnVisibility.tags = showCheckbox.checked;
+
+      showCheckbox.addEventListener("change", () => {
+        if (type === "status") columnVisibility.status = showCheckbox.checked;
+        if (type === "priority") columnVisibility.priority = showCheckbox.checked;
+        if (type === "effort") columnVisibility.effort = showCheckbox.checked;
+        if (type === "tags") columnVisibility.tags = showCheckbox.checked;
+        updateColumnVisibility();
+      });
+    }
+
+    // 值的 checkbox
+    const valueCheckboxes = panel.querySelectorAll("input[data-value]");
+    valueCheckboxes.forEach((cb) => {
+      const val = cb.dataset.value;
+
+      // 初始預設：狀態 = 除 done 以外全部勾；重要度 = P1 + P2；標籤 = 全不勾
+      if (type === "status") {
+        if (selectedStatus.size === 0) {
+          if (val !== "done") {
+            cb.checked = true;
+            selectedStatus.add(val);
+          }
+        } else {
+          cb.checked = selectedStatus.has(val);
+        }
+      } else if (type === "priority") {
+        if (selectedPriority.size === 0) {
+          if (val === "1" || val === "2") {
+            cb.checked = true;
+            selectedPriority.add(val);
+          }
+        } else {
+          cb.checked = selectedPriority.has(val);
+        }
+      }
+
+      cb.addEventListener("change", () => {
+        if (type === "status") {
+          if (cb.checked) selectedStatus.add(val);
+          else selectedStatus.delete(val);
+        } else if (type === "priority") {
+          if (cb.checked) selectedPriority.add(val);
+          else selectedPriority.delete(val);
+        } else if (type === "tags") {
+          if (cb.checked) selectedTags.add(val);
+          else selectedTags.delete(val);
+        }
+        renderTasksTable();
+      });
+    });
+  });
+
+  // 點擊空白處關閉所有 panel
+  document.addEventListener("click", () => {
+    document
+      .querySelectorAll(".filter-panel.open")
+      .forEach((p) => p.classList.remove("open"));
+  });
+
+  // 初始套一次欄位顯示狀態
+  updateColumnVisibility();
+}
+
+/***************************************************
+ * 右側表格：取得可見任務 & 渲染
+ ***************************************************/
+
+function getVisibleTasks() {
+  let tasks = allTasks.filter((t) => selectedPids.has(t.pid));
+
+  // 狀態 filter
+  if (selectedStatus.size > 0) {
+    tasks = tasks.filter((t) =>
+      selectedStatus.has(String(t.status || "").toLowerCase())
+    );
+  }
+
+  // 重要度 filter
+  if (selectedPriority.size > 0) {
+    tasks = tasks.filter((t) =>
+      selectedPriority.has(String(t.importance ?? ""))
+    );
+  }
+
+  // 標籤 filter
+  if (selectedTags.size > 0) {
+    tasks = tasks.filter((t) => {
+      const raw = t.tags;
+      let tags = [];
+      if (Array.isArray(raw)) {
+        tags = raw;
+      } else if (typeof raw === "string") {
+        tags = raw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+      if (!tags.length) return false;
+      return tags.some((tag) => selectedTags.has(tag));
+    });
+  }
+
+  // 排序：area -> importance -> due -> pid -> seq
+  tasks.sort((a, b) => {
+    const ao = (a.areaOrder ?? 999) - (b.areaOrder ?? 999);
+    if (ao !== 0) return ao;
+
+    const ip = Number(a.importance ?? 99) - Number(b.importance ?? 99);
+    if (ip !== 0) return ip;
+
+    if (a.due && b.due && a.due !== b.due) {
+      return String(a.due).localeCompare(String(b.due));
+    }
+
+    if (a.pid !== b.pid) {
+      return a.pid.localeCompare(b.pid);
+    }
+
+    const sa = Number(a.seq ?? 0);
+    const sb = Number(b.seq ?? 0);
+    return sa - sb;
+  });
+
+  return tasks;
+}
+
+function renderTasksTable() {
+  const tbody = document.querySelector("#tasksTable tbody");
+  const emptyHint = document.getElementById("emptyHint");
+  if (!tbody) return;
+
+  const tasks = getVisibleTasks();
+
+  tbody.innerHTML = "";
+
+  if (!tasks.length) {
+    if (emptyHint) emptyHint.style.display = "block";
+    updateColumnVisibility();
+    return;
+  }
+  if (emptyHint) emptyHint.style.display = "none";
+
+  tasks.forEach((task) => {
+    const flags = uiFlags[task.id] || { checked: false };
+    uiFlags[task.id] = flags;
+
+    const tr = document.createElement("tr");
+    tr.dataset.taskId = task.id;
+    if (flags.checked) {
+      tr.classList.add("row-checked-as-done");
+    }
+
+    // 0) checkbox（人類 / AI 溝通橋樑）
+    const tdCheck = document.createElement("td");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = flags.checked;
+    cb.dataset.taskId = task.id;
+    cb.addEventListener("change", () => {
+      flags.checked = cb.checked;
+    //   tr.classList.toggle("row-checked-as-done", flags.checked);
+      // 之後要跟 AI 說「把勾選的任務改成已完成」就用這個旗標集合
+    });
+    tdCheck.appendChild(cb);
+    tr.appendChild(tdCheck);
+
+    // 1) 標題（人類視線核心）
+    const tdTitle = document.createElement("td");
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "task-title";
+    titleSpan.textContent = task.title || "";
+    tdTitle.appendChild(titleSpan);
+    tr.appendChild(tdTitle);
+
+    // 2) 期限
+    const tdDue = document.createElement("td");
+    tdDue.textContent = task.due || "";
+    tr.appendChild(tdDue);
+
+    // 3) 狀態
+    const tdStatus = document.createElement("td");
+    tdStatus.className = "col-status-cell";
+    const st = String(task.status || "").toLowerCase();
+    const stSpan = document.createElement("span");
+    stSpan.className = "pill-status " + st;
+    stSpan.textContent = st || "-";
+    tdStatus.appendChild(stSpan);
+    tr.appendChild(tdStatus);
+
+    // 4) 重要度（P1/P2/P3）
+    const tdPri = document.createElement("td");
+    tdPri.className = "col-priority-cell";
+    const imp = Number(task.importance ?? 0);
+    const priSpan = document.createElement("span");
+    priSpan.className =
+      "priority-pill " + (imp === 1 ? "p1" : imp === 2 ? "p2" : "p3");
+    priSpan.textContent = imp ? `P${imp}` : "P-";
+    tdPri.appendChild(priSpan);
+    tr.appendChild(tdPri);
+
+    // 5) 預估時間（分鐘）
+    const tdEffort = document.createElement("td");
+    tdEffort.className = "col-effort-cell";
+    tdEffort.textContent =
+      typeof task.effort === "number" && !isNaN(task.effort)
+        ? `${task.effort}m`
+        : task.effort
+        ? String(task.effort)
+        : "";
+    tr.appendChild(tdEffort);
+
+    // 6) 標籤（緩衝區）
+    const tdTags = document.createElement("td");
+    tdTags.className = "col-tags-cell";
+    let tagsText = "";
+    const rawTags = task.tags;
+    if (Array.isArray(rawTags)) {
+      tagsText = rawTags.join(", ");
+    } else if (typeof rawTags === "string") {
+      tagsText = rawTags;
+    }
+    const tagSpan = document.createElement("span");
+    tagSpan.className = "task-tags";
+    tagSpan.textContent = tagsText;
+    tdTags.appendChild(tagSpan);
+    tr.appendChild(tdTags);
+
+    tbody.appendChild(tr);
+  });
+
+  updateColumnVisibility();
+}
+
+/***************************************************
+ * 欄位顯示 / 隱藏
+ ***************************************************/
+
+function updateColumnVisibility() {
+  const showStatus = columnVisibility.status;
+  const showPriority = columnVisibility.priority;
+  const showEffort = columnVisibility.effort;
+  const showTags = columnVisibility.tags;
+
+  // header
+  document
+    .querySelectorAll("th.col-status")
+    .forEach((th) => (th.style.display = showStatus ? "" : "none"));
+  document
+    .querySelectorAll("th.col-priority")
+    .forEach((th) => (th.style.display = showPriority ? "" : "none"));
+  document
+    .querySelectorAll("th.col-effort")
+    .forEach((th) => (th.style.display = showEffort ? "" : "none"));
+  document
+    .querySelectorAll("th.col-tags")
+    .forEach((th) => (th.style.display = showTags ? "" : "none"));
+
+  // cells
+  document
+    .querySelectorAll("td.col-status-cell")
+    .forEach((td) => (td.style.display = showStatus ? "" : "none"));
+  document
+    .querySelectorAll("td.col-priority-cell")
+    .forEach((td) => (td.style.display = showPriority ? "" : "none"));
+  document
+    .querySelectorAll("td.col-effort-cell")
+    .forEach((td) => (td.style.display = showEffort ? "" : "none"));
+  document
+    .querySelectorAll("td.col-tags-cell")
+    .forEach((td) => (td.style.display = showTags ? "" : "none"));
+}
