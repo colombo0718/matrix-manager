@@ -10,10 +10,10 @@
 // 0) 大類定義：一個 row = 一個人生大區塊
 const table_area = [
   {
-    key: "l",              // areaKey：LeafLune
+    key: "l",              // LeafLune 生態系
     name: "LeafLune",      // 顯示名稱
-    color: "#38bdf8",      // UI 可用主色
-    icon: "🌙",            // Mind Map 用的小圖示
+    color: "#38bdf8",      // UI 主色
+    icon: "🌙",            // 小圖示
     order: 1               // 排序優先度（數字越小越前面）
   },
   {
@@ -24,11 +24,18 @@ const table_area = [
     order: 2
   },
   {
-    key: "p",              // 個人生活
+    key: "p",              // 個人生活總區（健康、感情、財務…）
     name: "Personal",
     color: "#22c55e",
     icon: "💚",
     order: 3
+  },
+  {
+    key: "y",              // 元智在職學業／研究所
+    name: "元智在職學業",
+    color: "#a855f7",
+    icon: "🎓",
+    order: 4
   }
 ];
 
@@ -38,20 +45,38 @@ const table_config = [
   {
     pid: "l01",
     areaKey: "l",
-    name: "ReinforceLab",
+    name: "宣學習 - XuanXuexi - XX",
     table: "table_l01"
   },
   {
     pid: "l02",
     areaKey: "l",
-    name: "Matrix Manager / 司簿星",
+    name: "玄機界域 - Strategy Space - SS",
     table: "table_l02"
   },
   {
     pid: "l03",
     areaKey: "l",
-    name: "AIGC 認證教材",
+    name: "強化教室 - ReinRoom - RR",
     table: "table_l03"
+  },
+  {
+    pid: "l04",
+    areaKey: "l",
+    name: "遊戲極客 - GameGeek - GG",
+    table: "table_l04"
+  },
+  {
+    pid: "l05",
+    areaKey: "l",
+    name: "矩陣總管 - Matrix Manager - MM",
+    table: "table_l05"
+  },
+  {
+    pid: "l06",
+    areaKey: "l",
+    name: "立方星艦 - CubicCraft - CC",
+    table: "table_l06"
   },
 
   // CWSoft 系列 -----------------------------------
@@ -66,6 +91,18 @@ const table_config = [
     areaKey: "c",
     name: "POS 教學與文件整理",
     table: "table_c02"
+  },
+  {
+    pid: "c03",
+    areaKey: "c",
+    name: "小葳智能客服",
+    table: "table_c03"
+  },
+  {
+    pid: "c04",
+    areaKey: "c",
+    name: "會計帳務系統",
+    table: "table_c04"
   },
 
   // Personal 系列 --------------------------------
@@ -84,9 +121,17 @@ const table_config = [
   {
     pid: "p03",
     areaKey: "p",
-    name: "Life Admin / 財務與雜事",
+    name: "Finance / 財務",
     table: "table_p03"
+  },
+  {
+    pid: "p04",
+    areaKey: "p",
+    name: "Practice / 修行",
+    table: "table_p04"
   }
+
+  // 元智在職學業（areaKey: "y"）之後再補專案
 ];
 
 /**************************************************
